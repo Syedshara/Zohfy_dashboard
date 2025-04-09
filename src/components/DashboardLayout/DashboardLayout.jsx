@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { BarChart3, Users, Package, Settings, Home, LogOut, Moon, Sun, FileLineChart } from "lucide-react"
+import { SiMeta } from "react-icons/si"
 import { Button } from "../ui/Button/Button"
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/Avatar/Avatar"
 import {
@@ -22,6 +23,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   useSidebar,
+  SidebarSeparator,
 } from "../Sidebar"
 import { useTheme } from "../ThemeProvider/ThemeProvider"
 import { useIsMobile } from "@/hooks/useMediaQuery"
@@ -36,6 +38,8 @@ const navigation = [
   { name: "Account", href: "/account", icon: Settings },
 ]
 
+const integrations = [{ name: "Meta Onboarding", href: "/facebook-login", icon: SiMeta }]
+
 function DashboardLayout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -48,15 +52,13 @@ function DashboardLayout({ children }) {
     setIsMounted(true)
   }, [])
 
-  const handleLogout = () => {
-    logout()
-  }
+  const handleLogout = () => logout()
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen bg-background ">
+      <div className="flex min-h-screen w-full bg-background">
         <AppSidebar pathname={pathname} handleLogout={handleLogout} />
-        <div className="flex flex-1 flex-col w-full transition-all duration-300">
+        <div className="flex flex-col flex-1 w-full transition-all duration-300">
           <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6">
             <SidebarTrigger className="text-primary hover:bg-primary/10" />
             <div className="flex flex-1 items-center justify-between">
@@ -69,8 +71,8 @@ function DashboardLayout({ children }) {
               </div>
             </div>
           </header>
-          <main className="flex-1 overflow-auto p-4 sm:p-6 md:p-8 w-full ">
-            <div className="mx-auto max-w-full animate-in w-full">{children}</div>
+          <main className="flex-1 w-full overflow-auto p-4 sm:p-6 md:p-8">
+            <div className="w-full max-w-7xl mx-auto animate-in">{children}</div>
           </main>
         </div>
       </div>
@@ -78,24 +80,38 @@ function DashboardLayout({ children }) {
   )
 }
 
-// Fix Bug 3: Sidebar Visibility in Light Mode
-// Update the AppSidebar component to ensure proper contrast
 function AppSidebar({ pathname, handleLogout }) {
   const { state } = useSidebar()
 
   return (
-    <Sidebar className="border-r-0 flex flex-col h-screen">
+    <Sidebar className="w-64 min-w-[16rem] flex flex-col h-screen border-r border-white/10 transition-all duration-300">
       <SidebarHeader className="flex items-center h-16 px-8 mt-3 border-b border-white/20">
         <Link to="/" className="flex items-center gap-2">
-          <div className="h-10 w-10 rounded-md  border border-primary flex items-center justify-center">
+          <div className="h-10 w-10 rounded-md border border-primary flex items-center justify-center">
             <BarChart3 className="h-6 w-6 text-primary" />
           </div>
-          <span className="text-2xl font-semibold  text-primary">Zohfy</span>
+          <span className="text-2xl font-semibold text-primary">Zohfy</span>
         </Link>
       </SidebarHeader>
       <SidebarContent className="flex-1 overflow-y-auto">
         <SidebarMenu className="py-1 mt-4">
           {navigation.map((item) => (
+            <SidebarMenuItem key={item.name}>
+              <Link
+                to={item.href}
+                className={`flex items-center gap-10 px-6 py-3 rounded-md w-full text-foreground hover:bg-primary/10 ${pathname === item.href ? "bg-primary/20" : ""}`}
+              >
+                <item.icon className="h-6 w-6" />
+                <span>{item.name}</span>
+              </Link>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+
+        <SidebarSeparator className="my-4" />
+        <div className="px-6 py-2 text-sm font-medium text-muted-foreground">Integrations</div>
+        <SidebarMenu className="py-1">
+          {integrations.map((item) => (
             <SidebarMenuItem key={item.name}>
               <Link
                 to={item.href}
@@ -159,10 +175,7 @@ function ThemeToggle() {
 
 function UserMenu({ user, onLogout }) {
   const initials = user?.name
-    ? user.name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
+    ? user.name.split(" ").map((n) => n[0]).join("")
     : user?.email
       ? user.email.charAt(0).toUpperCase()
       : "U"
@@ -198,4 +211,3 @@ function UserMenu({ user, onLogout }) {
 }
 
 export default DashboardLayout
-

@@ -13,6 +13,7 @@ import Analytics from "./pages/Analytics/Analytics"
 import Account from "./pages/Account/Account"
 import Login from "./pages/Auth/Login"
 import Register from "./pages/Auth/Register"
+import FacebookLogin from "./pages/FacebookLogin/FacebookLogin"
 
 // Protected route component
 function ProtectedRoute({ children }) {
@@ -100,6 +101,17 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      {/* New Facebook Login Route */}
+      <Route
+        path="/facebook-login"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <FacebookLogin />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
       {/* Redirect any unknown routes to dashboard if authenticated, otherwise to login */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
@@ -134,4 +146,3 @@ function App() {
 }
 
 export default App
-

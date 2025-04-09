@@ -160,11 +160,12 @@ function OverviewTab() {
           <CardDescription>Distribution of revenue across channels</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="aspect-[4/2]">
+          <div className="h-64 p-3">
             <PieChart />
           </div>
         </CardContent>
       </Card>
+
       <Card className="col-span-4 card-hover">
         <CardHeader>
           <CardTitle>Monthly Revenue</CardTitle>
@@ -354,11 +355,10 @@ function CustomersTab() {
                     <td className="p-4 align-middle">{customer.lastOrder}</td>
                     <td className="p-4 align-middle text-right">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs ${
-                          customer.status === "Active"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                            : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
-                        }`}
+                        className={`px-2 py-1 rounded-full text-xs ${customer.status === "Active"
+                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                          : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+                          }`}
                       >
                         {customer.status}
                       </span>

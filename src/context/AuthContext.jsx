@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect } from "react"
+import { createContext, useContext, useState, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 
 // Create the auth context
@@ -21,35 +21,44 @@ export const AuthProvider = ({ children }) => {
     const [isLoading, setIsLoading] = useState(true)
     const [accessToken, setAccessToken] = useState(null)
     const [refreshToken, setRefreshToken] = useState(null)
+    const [tokenExpiry, setTokenExpiry] = useState(null)
     const navigate = useNavigate()
+
+    // Check if token is expired
+    const isTokenExpired = useCallback(() => {
+        if (!tokenExpiry) return true
+        return Date.now() >= tokenExpiry
+    }, [tokenExpiry])
 
     // Initialize auth state from localStorage on mount
     useEffect(() => {
         const initializeAuth = async () => {
             setIsLoading(true)
 
-            // Check if we have tokens in localStorage
             const storedAccessToken = localStorage.getItem("access_token")
             const storedRefreshToken = localStorage.getItem("refresh_token")
             const storedUser = localStorage.getItem("user")
+            const storedExpiry = localStorage.getItem("token_expiry")
 
             if (storedAccessToken && storedRefreshToken) {
                 setAccessToken(storedAccessToken)
                 setRefreshToken(storedRefreshToken)
+                setTokenExpiry(Number(storedExpiry))
 
                 if (storedUser) {
                     setUser(JSON.parse(storedUser))
                     setIsAuthenticated(true)
                 } else {
-                    // If we have tokens but no user data, fetch user data
                     try {
                         await fetchUserData(storedAccessToken)
                     } catch (error) {
-                        // If token is invalid, try to refresh it
-                        try {
-                            await refreshAccessToken(storedRefreshToken)
-                        } catch (refreshError) {
-                            // If refresh fails, clear auth state
+                        if (isTokenExpired()) {
+                            try {
+                                await refreshAccessToken(storedRefreshToken)
+                            } catch (refreshError) {
+                                logout()
+                            }
+                        } else {
                             logout()
                         }
                     }
@@ -60,7 +69,7 @@ export const AuthProvider = ({ children }) => {
         }
 
         initializeAuth()
-    }, [])
+    }, [isTokenExpired])
 
     // Fetch user data from the /user endpoint
     const fetchUserData = async (token) => {
@@ -87,7 +96,7 @@ export const AuthProvider = ({ children }) => {
         }
     }
 
-    // Login function - calls the /token endpoint with password grant
+    // Login function
     const login = async (email, password) => {
         setIsLoading(true)
 
@@ -109,24 +118,18 @@ export const AuthProvider = ({ children }) => {
             }
 
             const data = await response.json()
+            const expiryTime = Date.now() + (data.expires_in * 1000)
 
-            // Store tokens
+            // Store tokens and expiry
             setAccessToken(data.access_token)
             setRefreshToken(data.refresh_token)
+            setTokenExpiry(expiryTime)
             localStorage.setItem("access_token", data.access_token)
             localStorage.setItem("refresh_token", data.refresh_token)
+            localStorage.setItem("token_expiry", expiryTime.toString())
             localStorage.setItem("isAuthenticated", "true")
 
-            // If user data is included in the response, store it
-            if (data.user) {
-                setUser(data.user)
-                localStorage.setItem("user", JSON.stringify(data.user))
-                setIsAuthenticated(true)
-            } else {
-                // Otherwise fetch user data
-                await fetchUserData(data.access_token)
-            }
-
+            await fetchUserData(data.access_token)
             setIsLoading(false)
             return data
         } catch (error) {
@@ -136,7 +139,7 @@ export const AuthProvider = ({ children }) => {
         }
     }
 
-    // Signup function - calls the /signup endpoint
+    // Signup function
     const signup = async (email, password, userData = {}) => {
         setIsLoading(true)
 
@@ -159,16 +162,17 @@ export const AuthProvider = ({ children }) => {
 
             const data = await response.json()
 
-            // If email is already confirmed, log the user in
             if (data.user?.email_confirmed_at) {
+                const expiryTime = Date.now() + (data.expires_in * 1000)
                 setAccessToken(data.access_token)
                 setRefreshToken(data.refresh_token)
+                setTokenExpiry(expiryTime)
                 localStorage.setItem("access_token", data.access_token)
                 localStorage.setItem("refresh_token", data.refresh_token)
+                localStorage.setItem("token_expiry", expiryTime.toString())
                 localStorage.setItem("isAuthenticated", "true")
 
-                setUser(data.user)
-                localStorage.setItem("user", JSON.stringify(data.user))
+                await fetchUserData()
                 setIsAuthenticated(true)
             }
 
@@ -181,7 +185,7 @@ export const AuthProvider = ({ children }) => {
         }
     }
 
-    // Refresh token function - calls the /token endpoint with refresh_token grant
+    // Refresh token function
     const refreshAccessToken = async (token = null) => {
         try {
             const tokenToUse = token || refreshToken
@@ -206,23 +210,25 @@ export const AuthProvider = ({ children }) => {
             }
 
             const data = await response.json()
+            const expiryTime = Date.now() + (data.expires_in * 1000)
 
-            // Update tokens
+            // Update tokens and expiry
             setAccessToken(data.access_token)
             setRefreshToken(data.refresh_token)
+            setTokenExpiry(expiryTime)
             localStorage.setItem("access_token", data.access_token)
             localStorage.setItem("refresh_token", data.refresh_token)
+            localStorage.setItem("token_expiry", expiryTime.toString())
 
             return data
         } catch (error) {
             console.error("Token refresh error:", error)
-            // If refresh fails, log the user out
             logout()
             throw error
         }
     }
 
-    // Logout function - calls the /logout endpoint and clears auth state
+    // Logout function
     const logout = async () => {
         if (accessToken) {
             try {
@@ -234,14 +240,14 @@ export const AuthProvider = ({ children }) => {
                 })
             } catch (error) {
                 console.error("Logout error:", error)
-                // Continue with local logout even if API call fails
             }
         }
 
-        // Clear auth state
+        // Clear all auth state
         setUser(null)
         setAccessToken(null)
         setRefreshToken(null)
+        setTokenExpiry(null)
         setIsAuthenticated(false)
 
         // Clear localStorage
@@ -249,13 +255,24 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem("refresh_token")
         localStorage.removeItem("user")
         localStorage.removeItem("isAuthenticated")
+        localStorage.removeItem("token_expiry")
 
         // Redirect to login
         navigate("/login")
     }
 
-    // Create an interceptor for API calls to handle token refresh
+    // Enhanced authFetch with automatic token refresh
     const authFetch = async (url, options = {}) => {
+        // Check if token is expired or about to expire (within 1 minute)
+        if (isTokenExpired() || (tokenExpiry && Date.now() >= tokenExpiry - 60000)) {
+            try {
+                await refreshAccessToken()
+            } catch (error) {
+                logout()
+                throw new Error("Session expired. Please login again.")
+            }
+        }
+
         if (!accessToken) {
             throw new Error("No access token available")
         }
@@ -269,11 +286,11 @@ export const AuthProvider = ({ children }) => {
             },
         }
 
-        try {
-            const response = await fetch(url, authOptions)
+        const response = await fetch(url, authOptions)
 
-            // If unauthorized, try to refresh the token
-            if (response.status === 401) {
+        // If unauthorized, try to refresh the token once
+        if (response.status === 401) {
+            try {
                 const refreshData = await refreshAccessToken()
 
                 // Retry the request with the new token
@@ -286,13 +303,13 @@ export const AuthProvider = ({ children }) => {
                 }
 
                 return fetch(url, retryOptions)
+            } catch (error) {
+                logout()
+                throw new Error("Session expired. Please login again.")
             }
-
-            return response
-        } catch (error) {
-            console.error("API request error:", error)
-            throw error
         }
+
+        return response
     }
 
     // Password reset function
@@ -329,8 +346,8 @@ export const AuthProvider = ({ children }) => {
         fetchUserData,
         resetPassword,
         authFetch,
+        accessToken,
     }
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
-

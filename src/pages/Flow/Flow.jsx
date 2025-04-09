@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/Card/Card"
-import { Tabs, TabsList, TabsTrigger } from "../../components/ui/Tabs/Tabs"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/Tabs/Tabs"
 import { Button } from "../../components/ui/Button/Button"
 import { Input } from "../../components/ui/Input/Input"
 import { Label } from "../../components/ui/Label/Label"
@@ -19,6 +19,10 @@ import { Plus, Settings, AlertTriangle, FileText, Trash, Edit, Copy, X, Save } f
 
 function Flow() {
   const [activeTab, setActiveTab] = useState("responses")
+  const [customer_name, setCustomerName] = useState("John Doe")
+  const [order_id, setOrderId] = useState("12345")
+  const [tracking_link, setTrackingLink] = useState("https://example.com/track/12345")
+  const [address, setAddress] = useState("123 Main St, Anytown")
   const [isNewResponseOpen, setIsNewResponseOpen] = useState(false)
   const [isNewWorkflowOpen, setIsNewWorkflowOpen] = useState(false)
   const [isNewRuleOpen, setIsNewRuleOpen] = useState(false)
@@ -118,19 +122,23 @@ function Flow() {
           </TabsTrigger>
         </TabsList>
 
-        <div className="mt-6">
-          {activeTab === "responses" && (
-            <AutomatedResponses
-              responses={responses}
-              onAddClick={() => setIsNewResponseOpen(true)}
-              onDeleteResponse={handleDeleteResponse}
-              onToggleActive={handleToggleResponseActive}
-            />
-          )}
-          {activeTab === "workflows" && <Workflows onAddClick={() => setIsNewWorkflowOpen(true)} />}
-          {activeTab === "escalation" && <EscalationRules onAddClick={() => setIsNewRuleOpen(true)} />}
-          {activeTab === "templates" && <MessageTemplates onAddClick={() => setIsNewTemplateOpen(true)} />}
-        </div>
+        <TabsContent value="responses" className="mt-6">
+          <AutomatedResponses
+            responses={responses}
+            onAddClick={() => setIsNewResponseOpen(true)}
+            onDeleteResponse={handleDeleteResponse}
+            onToggleActive={handleToggleResponseActive}
+          />
+        </TabsContent>
+        <TabsContent value="workflows" className="mt-6">
+          <Workflows onAddClick={() => setIsNewWorkflowOpen(true)} />
+        </TabsContent>
+        <TabsContent value="escalation" className="mt-6">
+          <EscalationRules onAddClick={() => setIsNewRuleOpen(true)} />
+        </TabsContent>
+        <TabsContent value="templates" className="mt-6">
+          <MessageTemplates onAddClick={() => setIsNewTemplateOpen(true)} />
+        </TabsContent>
       </Tabs>
 
       {/* New Response Dialog */}
@@ -755,4 +763,3 @@ function TemplateCard({ title, category, preview }) {
 }
 
 export default Flow
-
