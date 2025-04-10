@@ -108,7 +108,7 @@ function AppSidebar({ pathname, handleLogout }) {
           ))}
         </SidebarMenu>
 
-        <SidebarSeparator className="my-4" />
+        <SidebarSeparator className="my-4 bg-primary/20" />
         <div className="px-6 py-2 text-sm font-medium text-muted-foreground">Integrations</div>
         <SidebarMenu className="py-1">
           {integrations.map((item) => (
@@ -136,7 +136,7 @@ function AppSidebar({ pathname, handleLogout }) {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
-    </Sidebar>
+    </Sidebar >
   )
 }
 

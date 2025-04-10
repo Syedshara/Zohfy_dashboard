@@ -115,8 +115,6 @@
   .hover-scale:hover {
     transform: scale(1.03);
   }
-  
-
 
   .hover-scale {
     @apply transition-transform duration-200 hover:scale-105;
@@ -132,6 +130,26 @@
 
   .menu-item-hover {
     @apply transition-all duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground;
+  }
+
+  .use-gradient-theme .bg-primary {
+    background: var(--primary-gradient, hsl(var(--primary)));
+  }
+
+  .use-gradient-theme .border-primary {
+    border-image: var(--primary-gradient, hsl(var(--primary))) 1;
+  }
+
+  .use-gradient-theme .text-primary {
+    background: var(--primary-gradient, hsl(var(--primary)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Apply blend modes to elements */
+  .blend-element {
+    mix-blend-mode: var(--color-blend-mode, normal);
   }
 }
 

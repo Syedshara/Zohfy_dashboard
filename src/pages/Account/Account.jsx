@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "../../components/ui/Card/Card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs/Tabs"
 import { Button } from "../../components/ui/Button/Button"
@@ -256,7 +256,7 @@ function UserManagement({ teamMembers, setTeamMembers, onAddUserClick }) {
         <CardContent className="space-y-6">
           <div className="flex flex-col sm:flex-row gap-6">
             <div className="flex flex-col items-center gap-4 my-10 mx-16">
-              <Avatar className="h-36 w-36 border border-primary">
+              <Avatar className="h-36 w-36 ">
                 <AvatarImage src={profileImage} alt="User" />
                 <AvatarFallback className="text-xl">JD</AvatarFallback>
               </Avatar>
@@ -527,12 +527,46 @@ function TenantSettings() {
   const [companyLogo, setCompanyLogo] = useState(null)
   const logoInputRef = useRef(null)
   const { setTheme } = useTheme()
-  const [selectedColor, setSelectedColor] = useState("#2DD4BF") // Default teal color
-  const [companyInfo, setCompanyInfo] = useState({
-    name: "Business Dashboard Inc.",
-    website: "https://businessdashboard.com",
-    industry: "Software & Technology",
+
+  // Enhanced color state with more properties
+  const [colorSettings, setColorSettings] = useState(() => {
+    // Initialize from localStorage if available, otherwise use default settings
+    const savedSettings = localStorage.getItem("theme-color-settings")
+    return savedSettings
+      ? JSON.parse(savedSettings)
+      : {
+        baseColor: "#2DD4BF",
+        intensity: 100, // percentage of color intensity (saturation)
+        contrast: 50, // contrast level
+        useGradient: false,
+        gradientColor: "#3B82F6",
+        gradientDirection: "to right",
+        blendMode: "normal",
+      }
   })
+
+  // Preview state to show changes before applying
+  const [previewColor, setPreviewColor] = useState(colorSettings.baseColor)
+  const [previewIntensity, setPreviewIntensity] = useState(colorSettings.intensity)
+  const [previewContrast, setPreviewContrast] = useState(colorSettings.contrast)
+  const [previewUseGradient, setPreviewUseGradient] = useState(colorSettings.useGradient)
+  const [previewGradientColor, setPreviewGradientColor] = useState(colorSettings.gradientColor)
+  const [previewGradientDirection, setPreviewGradientDirection] = useState(colorSettings.gradientDirection)
+  const [previewBlendMode, setPreviewBlendMode] = useState(colorSettings.blendMode)
+
+  const [companyInfo, setCompanyInfo] = useState({
+    name: "Acme Inc.",
+    website: "https://example.com",
+    industry: "Technology",
+  })
+
+  const handleCompanyInfoChange = (e) => {
+    const { name, value } = e.target
+    setCompanyInfo((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
 
   const handleLogoUpload = (e) => {
     const file = e.target.files[0]
@@ -545,22 +579,182 @@ function TenantSettings() {
     }
   }
 
-  const handleCompanyInfoChange = (e) => {
-    const { name, value } = e.target
-    setCompanyInfo((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
-  }
+  useEffect(() => {
+    // Apply the stored color settings on component mount
+    applyThemeColor(colorSettings, false)
+  }, [])
 
-  const applyThemeColor = (color) => {
-    setSelectedColor(color)
+  // Preview the color changes in real-time
+  useEffect(() => {
+    const previewSettings = {
+      baseColor: previewColor,
+      intensity: previewIntensity,
+      contrast: previewContrast,
+      useGradient: previewUseGradient,
+      gradientColor: previewGradientColor,
+      gradientDirection: previewGradientDirection,
+      blendMode: previewBlendMode,
+    }
+
+    // Apply preview without saving to storage
+    applyThemeColor(previewSettings, false)
+  }, [
+    previewColor,
+    previewIntensity,
+    previewContrast,
+    previewUseGradient,
+    previewGradientColor,
+    previewGradientDirection,
+    previewBlendMode,
+  ])
+
+  const applyThemeColor = (settings, saveToStorage = true) => {
+    if (saveToStorage) {
+      // Save all settings to localStorage for persistence
+      localStorage.setItem("theme-color-settings", JSON.stringify(settings))
+      // Update the state with the saved settings
+      setColorSettings(settings)
+    }
+
+    // Convert hex to HSL for CSS variables
+    const hexToHSL = (hex) => {
+      // Remove the # if present
+      hex = hex.replace(/^#/, "")
+
+      // Parse the hex values
+      const r = Number.parseInt(hex.substring(0, 2), 16) / 255
+      const g = Number.parseInt(hex.substring(2, 4), 16) / 255
+      const b = Number.parseInt(hex.substring(4, 6), 16) / 255
+
+      // Find the min and max values to calculate saturation
+      const max = Math.max(r, g, b)
+      const min = Math.min(r, g, b)
+      let h,
+        s,
+        l = (max + min) / 2
+
+      if (max === min) {
+        h = s = 0 // achromatic
+      } else {
+        const d = max - min
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+
+        switch (max) {
+          case r:
+            h = (g - b) / d + (g < b ? 6 : 0)
+            break
+          case g:
+            h = (b - r) / d + 2
+            break
+          case b:
+            h = (r - g) / d + 4
+            break
+          default:
+            break
+        }
+
+        h /= 6
+      }
+
+      // Convert to degrees and percentages
+      h = Math.round(h * 360)
+      s = Math.round(s * 100)
+      l = Math.round(l * 100)
+
+      return { h, s, l }
+    }
+
+    const hsl = hexToHSL(settings.baseColor)
+
+    // Apply intensity (saturation) adjustment
+    const adjustedS = Math.min(Math.max(hsl.s * (settings.intensity / 100), 0), 100)
+
+    // Apply contrast adjustment (affects lightness)
+    const contrastFactor = (settings.contrast - 50) / 100
+    const adjustedL = Math.min(Math.max(hsl.l + contrastFactor * 20, 10), 90)
+
+    const hslString = `${hsl.h} ${adjustedS}% ${adjustedL}%`
 
     // Update CSS variables for the theme
-    document.documentElement.style.setProperty("--primary", color)
+    const root = document.documentElement
 
-    // This is a simplified approach - in a real app you would update the theme more comprehensively
-    // For demonstration purposes, we're just changing the primary color
+    // Primary color and its variants
+    root.style.setProperty("--primary", hslString)
+
+    // If using gradient, set up gradient background
+    if (settings.useGradient) {
+      const gradientHsl = hexToHSL(settings.gradientColor)
+      const adjustedGradientS = Math.min(Math.max(gradientHsl.s * (settings.intensity / 100), 0), 100)
+      const adjustedGradientL = Math.min(Math.max(gradientHsl.l + contrastFactor * 20, 10), 90)
+      const gradientHslString = `${gradientHsl.h} ${adjustedGradientS}% ${adjustedGradientL}%`
+
+      // Set gradient for elements that support it
+      root.style.setProperty(
+        "--primary-gradient",
+        `linear-gradient(${settings.gradientDirection}, hsl(${hslString}), hsl(${gradientHslString}))`,
+      )
+
+      // Add a CSS class to enable gradient usage
+      document.body.classList.add("use-gradient-theme")
+    } else {
+      // Remove gradient if not using it
+      root.style.setProperty("--primary-gradient", "none")
+      document.body.classList.remove("use-gradient-theme")
+    }
+
+    // Set blend mode
+    root.style.setProperty("--color-blend-mode", settings.blendMode)
+
+    // Update accent color based on primary (slightly lighter)
+    const accentL = Math.min(adjustedL + 45, 96)
+    root.style.setProperty("--accent", `${hsl.h} ${adjustedS * 0.8}% ${accentL}%`)
+
+    // Update accent-foreground to be the primary color but with adjusted contrast for better readability
+    root.style.setProperty("--accent-foreground", `${hsl.h} ${adjustedS}% ${adjustedL < 50 ? 90 : 20}%`)
+
+    // Update ring color to match primary but slightly more saturated for focus states
+    root.style.setProperty("--ring", `${hsl.h} ${Math.min(adjustedS + 10, 100)}% ${adjustedL}%`)
+
+    // Update sidebar colors with adjusted intensity
+    root.style.setProperty("--sidebar-primary", hslString)
+    root.style.setProperty("--sidebar-accent", `${hsl.h} ${adjustedS}% ${Math.max(adjustedL - 5, 10)}%`)
+
+    // Update chart colors with complementary hues but consistent saturation/lightness
+    root.style.setProperty("--chart-1", hslString)
+    root.style.setProperty("--chart-2", `${(hsl.h + 60) % 360} ${adjustedS}% ${adjustedL}%`)
+    root.style.setProperty("--chart-3", `${(hsl.h + 120) % 360} ${adjustedS}% ${adjustedL}%`)
+    root.style.setProperty("--chart-4", `${(hsl.h + 180) % 360} ${adjustedS}% ${adjustedL}%`)
+    root.style.setProperty("--chart-5", `${(hsl.h + 240) % 360} ${adjustedS}% ${adjustedL}%`)
+
+    // Add CSS custom properties for text on colored backgrounds
+    const textColor = adjustedL < 60 ? "255, 255, 255" : "0, 0, 0"
+    root.style.setProperty("--on-primary-text", textColor)
+  }
+
+  // Save the preview settings as the actual theme
+  const saveThemeSettings = () => {
+    const newSettings = {
+      baseColor: previewColor,
+      intensity: previewIntensity,
+      contrast: previewContrast,
+      useGradient: previewUseGradient,
+      gradientColor: previewGradientColor,
+      gradientDirection: previewGradientDirection,
+      blendMode: previewBlendMode,
+    }
+
+    applyThemeColor(newSettings, true)
+  }
+
+  // Reset preview to current settings
+  const cancelPreview = () => {
+    setPreviewColor(colorSettings.baseColor)
+    setPreviewIntensity(colorSettings.intensity)
+    setPreviewContrast(colorSettings.contrast)
+    setPreviewUseGradient(colorSettings.useGradient)
+    setPreviewGradientColor(colorSettings.gradientColor)
+    setPreviewGradientDirection(colorSettings.gradientDirection)
+    setPreviewBlendMode(colorSettings.blendMode)
   }
 
   const colorOptions = [
@@ -571,6 +765,32 @@ function TenantSettings() {
     { name: "Amber", value: "#F59E0B" },
     { name: "Red", value: "#EF4444" },
     { name: "Gray", value: "#6B7280" },
+  ]
+
+  const gradientDirections = [
+    { name: "To Right", value: "to right" },
+    { name: "To Left", value: "to left" },
+    { name: "To Bottom", value: "to bottom" },
+    { name: "To Top", value: "to top" },
+    { name: "To Bottom Right", value: "to bottom right" },
+    { name: "To Bottom Left", value: "to bottom left" },
+    { name: "To Top Right", value: "to top right" },
+    { name: "To Top Left", value: "to top left" },
+  ]
+
+  const blendModes = [
+    { name: "Normal", value: "normal" },
+    { name: "Multiply", value: "multiply" },
+    { name: "Screen", value: "screen" },
+    { name: "Overlay", value: "overlay" },
+    { name: "Darken", value: "darken" },
+    { name: "Lighten", value: "lighten" },
+    { name: "Color Dodge", value: "color-dodge" },
+    { name: "Color Burn", value: "color-burn" },
+    { name: "Hard Light", value: "hard-light" },
+    { name: "Soft Light", value: "soft-light" },
+    { name: "Difference", value: "difference" },
+    { name: "Exclusion", value: "exclusion" },
   ]
 
   return (
@@ -662,68 +882,229 @@ function TenantSettings() {
           <CardDescription>Customize the look and feel of your dashboard</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid gap-4">
-            <div>
-              <Label className="mb-2 block">Theme Color</Label>
-              <div className="flex flex-wrap gap-2">
-                {colorOptions.map((color) => (
-                  <div
-                    key={color.value}
-                    className={`h-10 w-10 rounded-full cursor-pointer transition-all duration-200 hover:scale-110 ${selectedColor === color.value ? "ring-2 ring-offset-2" : ""}`}
-                    style={{ backgroundColor: color.value, ringColor: color.value }}
-                    onClick={() => applyThemeColor(color.value)}
-                    title={color.name}
-                  ></div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <Label className="mb-2 block">Theme Mode</Label>
-              <div className="flex gap-4">
-                <div
-                  className="border rounded-lg p-4 flex flex-col items-center gap-2 cursor-pointer hover:bg-muted/50 transition-all"
-                  onClick={() => setTheme("light")}
-                >
-                  <div className="w-full h-24 border rounded bg-white"></div>
-                  <span className="text-sm font-medium">Light Mode</span>
-                </div>
-                <div
-                  className="border rounded-lg p-4 flex flex-col items-center gap-2 cursor-pointer hover:bg-muted/50 transition-all"
-                  onClick={() => setTheme("dark")}
-                >
-                  <div className="w-full h-24 border rounded bg-gray-800"></div>
-                  <span className="text-sm font-medium">Dark Mode</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <Label className="mb-2 block">Layout</Label>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="border rounded-lg p-4 flex flex-col items-center gap-2 cursor-pointer bg-muted/50">
-                  <div className="w-full h-24 border rounded flex">
-                    <div className="w-1/4 h-full bg-primary/20"></div>
-                    <div className="w-3/4 h-full"></div>
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Color settings column */}
+            <div className="space-y-6">
+              <div>
+                <Label className="mb-2 block">Primary Color</Label>
+                <div className="flex flex-wrap gap-2">
+                  {colorOptions.map((color) => (
+                    <div
+                      key={color.value}
+                      className={`h-10 w-10 rounded-full cursor-pointer transition-all duration-200 hover:scale-110 ${previewColor === color.value ? "ring-2 ring-offset-2" : ""}`}
+                      style={{ backgroundColor: color.value, ringColor: color.value }}
+                      onClick={() => setPreviewColor(color.value)}
+                      title={color.name}
+                    ></div>
+                  ))}
+                  <div className="flex items-center">
+                    <input
+                      type="color"
+                      value={previewColor}
+                      onChange={(e) => setPreviewColor(e.target.value)}
+                      className="h-10 w-10 cursor-pointer rounded-full border-0 bg-transparent"
+                      title="Custom color"
+                    />
                   </div>
-                  <span className="text-sm font-medium">Default</span>
                 </div>
-                <div className="border rounded-lg p-4 flex flex-col items-center gap-2 cursor-pointer">
-                  <div className="w-full h-24 border rounded flex">
-                    <div className="w-1/4 h-full bg-primary/20"></div>
-                    <div className="w-3/4 h-full flex flex-col">
-                      <div className="h-1/3 border-b"></div>
-                      <div className="h-2/3"></div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="color-intensity">Color Intensity</Label>
+                <div className="flex items-center gap-4">
+                  <span className="text-xs text-muted-foreground">Subtle</span>
+                  <input
+                    id="color-intensity"
+                    type="range"
+                    min="20"
+                    max="100"
+                    value={previewIntensity}
+                    onChange={(e) => setPreviewIntensity(Number.parseInt(e.target.value))}
+                    className="flex-1"
+                  />
+                  <span className="text-xs text-muted-foreground">Vibrant</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="color-contrast">Contrast</Label>
+                <div className="flex items-center gap-4">
+                  <span className="text-xs text-muted-foreground">Low</span>
+                  <input
+                    id="color-contrast"
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={previewContrast}
+                    onChange={(e) => setPreviewContrast(Number.parseInt(e.target.value))}
+                    className="flex-1 bg-black"
+                  />
+                  <span className="text-xs text-muted-foreground">High</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="use-gradient"
+                    checked={previewUseGradient}
+                    onChange={(e) => setPreviewUseGradient(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <Label htmlFor="use-gradient">Use Gradient</Label>
+                </div>
+
+                {previewUseGradient && (
+                  <div className="pl-6 space-y-4 mt-2">
+                    <div>
+                      <Label className="mb-2 block">Secondary Color</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {colorOptions.map((color) => (
+                          <div
+                            key={color.value}
+                            className={`h-8 w-8 rounded-full cursor-pointer transition-all duration-200 hover:scale-110 ${previewGradientColor === color.value ? "ring-2 ring-offset-2" : ""}`}
+                            style={{ backgroundColor: color.value, ringColor: color.value }}
+                            onClick={() => setPreviewGradientColor(color.value)}
+                            title={color.name}
+                          ></div>
+                        ))}
+                        <div className="flex items-center">
+                          <input
+                            type="color"
+                            value={previewGradientColor}
+                            onChange={(e) => setPreviewGradientColor(e.target.value)}
+                            className="h-8 w-8 cursor-pointer rounded-full border-0 bg-transparent"
+                            title="Custom color"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="gradient-direction">Gradient Direction</Label>
+                      <select
+                        id="gradient-direction"
+                        value={previewGradientDirection}
+                        onChange={(e) => setPreviewGradientDirection(e.target.value)}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-1"
+                      >
+                        {gradientDirections.map((direction) => (
+                          <option key={direction.value} value={direction.value}>
+                            {direction.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
-                  <span className="text-sm font-medium">Split View</span>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="blend-mode">Blend Mode</Label>
+                <div className="relative">
+                  <select
+                    id="blend-mode"
+                    value={previewBlendMode}
+                    onChange={(e) => setPreviewBlendMode(e.target.value)}
+                    className="flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pl-3 pr-8 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    {blendModes.map((mode) => (
+                      <option key={mode.value} value={mode.value}>
+                        {mode.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                    <svg
+                      width="15"
+                      height="15"
+                      viewBox="0 0 15 15"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 opacity-70"
+                    >
+                      <path
+                        d="M4.93179 5.43179C4.75605 5.60753 4.75605 5.89245 4.93179 6.06819C5.10753 6.24392 5.39245 6.24392 5.56819 6.06819L7.49999 4.13638L9.43179 6.06819C9.60753 6.24392 9.89245 6.24392 10.0682 6.06819C10.2439 5.89245 10.2439 5.60753 10.0682 5.43179L7.81819 3.18179C7.73379 3.0974 7.61933 3.04999 7.49999 3.04999C7.38064 3.04999 7.26618 3.0974 7.18179 3.18179L4.93179 5.43179ZM10.0682 9.56819C10.2439 9.39245 10.2439 9.10753 10.0682 8.93179C9.89245 8.75606 9.60753 8.75606 9.43179 8.93179L7.49999 10.8636L5.56819 8.93179C5.39245 8.75606 5.10753 8.75606 4.93179 8.93179C4.75605 9.10753 4.75605 9.39245 4.93179 9.56819L7.18179 11.8182C7.35753 11.9939 7.64245 11.9939 7.81819 11.8182L10.0682 9.56819Z"
+                        fill="currentColor"
+                        fillRule="evenodd"
+                        clipRule="evenodd"
+                      ></path>
+                    </svg>
+                  </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Preview column */}
+            <div className="space-y-6">
+              <Label className="block mb-2">Live Preview</Label>
+              <div className="space-y-4 border rounded-lg p-4">
+                {/* Header preview */}
+                <div className="border-b pb-2">
+                  <h3 className="font-semibold text-sm text-muted-foreground">Header</h3>
+                </div>
+                <div className="h-12 bg-background flex items-center px-4 border rounded-md">
+                  <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
+                    <span className="text-primary-foreground text-xs">Logo</span>
+                  </div>
+                  <div className="ml-4 h-6 w-24 bg-muted rounded"></div>
+                  <div className="ml-auto flex gap-2">
+                    <div className="h-8 w-8 rounded-full bg-muted"></div>
+                    <div className="h-8 w-8 rounded-full bg-muted"></div>
+                  </div>
+                </div>
+
+                {/* Sidebar preview */}
+                <div className="border-b pb-2 mt-4">
+                  <h3 className="font-semibold text-sm text-muted-foreground">Sidebar</h3>
+                </div>
+                <div className="flex h-32 border rounded-md overflow-hidden">
+                  <div className="w-1/4 bg-sidebar flex flex-col p-2 gap-2">
+                    <div className="h-6 bg-sidebar-accent rounded w-full"></div>
+                    <div className="h-6 bg-sidebar-accent/50 rounded w-full"></div>
+                    <div className="h-6 bg-sidebar-accent/50 rounded w-full"></div>
+                  </div>
+                  <div className="w-3/4 p-3">
+                    <div className="h-8 w-3/4 bg-primary/10 rounded-md mb-3"></div>
+                    <div className="h-4 w-full bg-muted rounded mb-2"></div>
+                    <div className="h-4 w-full bg-muted rounded mb-2"></div>
+                    <div className="h-4 w-2/3 bg-muted rounded"></div>
+                  </div>
+                </div>
+
+
+
+
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <Label className="mb-2 block">Theme Mode</Label>
+            <div className="flex gap-4">
+              <div
+                className="border rounded-lg p-4 flex flex-col items-center gap-2 cursor-pointer hover:bg-muted/50 transition-all"
+                onClick={() => setTheme("light")}
+              >
+                <div className="w-full h-24 border rounded bg-white"></div>
+                <span className="text-sm font-medium">Light Mode</span>
+              </div>
+              <div
+                className="border rounded-lg p-4 flex flex-col items-center gap-2 cursor-pointer hover:bg-muted/50 transition-all"
+                onClick={() => setTheme("dark")}
+              >
+                <div className="w-full h-24 border rounded bg-gray-800"></div>
+                <span className="text-sm font-medium">Dark Mode</span>
               </div>
             </div>
           </div>
         </CardContent>
-        <CardFooter className="flex justify-end">
-          <Button className="hover-scale">
+        <CardFooter className="flex justify-between">
+          <Button variant="outline" onClick={cancelPreview}>
+            Reset Changes
+          </Button>
+          <Button className="hover-scale" onClick={saveThemeSettings}>
             <Palette className="mr-2 h-4 w-4" />
             Apply Theme
           </Button>
